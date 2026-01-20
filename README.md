@@ -58,3 +58,5 @@ Run the script eval_patient_siglip.py to test the performance of FTC-Net using `
 Before running the script, you need to set the model path to the training saved model path `model_save_path` and modify the code kind of `data_path` to your actual data save path.
 
 Finally, you can obtain the ROC and corresponding AUC of FTC-Net on the test set，which are saved in `save_path`.
+
+Prospective_data can be evaluated with 'prospective_data.npy' using 'prediction.py' and results will be output in a csv.
