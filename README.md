@@ -26,6 +26,7 @@ Our code was implemented in following environment：
 * torch == 2.0.0
 * cuda == 11.8
 * transformer == 4.45.2
+* peft == 0.4.0
 * GPU == NVIDIA L40 48GB
 
 Step 2: Data preparation
@@ -59,6 +60,6 @@ Before running the script, you need to set the model path to the training saved 
 
 Finally, you can obtain the ROC and corresponding AUC of FTC-Net on the test set，which are saved in `save_path`.
 
-Prospective_data can be evaluated with 'prospective_data.npy' using 'prediction.py' and results will be output in a csv.
+Prospective_data can be evaluated with `prospective_data.npy` using `prediction.py` and results will be output in a csv.
 
 model: https://pan.baidu.com/s/1JNtU9Ma8UwTP0hxe161-8w?pwd=x9bs.  key: x9bs
