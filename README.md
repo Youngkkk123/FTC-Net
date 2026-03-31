@@ -2,8 +2,8 @@
 This is the official implementation of FTC-Net in our work. 
 
 File descriptions are as follows:
-* train_patient_siglip.py: This code is for model training.
-* eval_patient_siglip.py: This code is for model testing.
+* train_patient_FTC_net.py: This code is for model training.
+* eval_patient_FTC_net.py: This code is for model testing.
 * datagenerator.py: This code is for dataset class.
 * data_augmentation.py: This code is for dataset augmentation.
 * Loss.py: This code is for definition of Focal_loss.
