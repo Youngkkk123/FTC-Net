@@ -45,7 +45,7 @@ Then, save the data path and the corresponding label in a `.npy` file for each s
 
 Step 3: Model training
 -------------
-Run the script train_patient_siglip.py to train FTC-Net using `train.npy` and `val.npy` files. The `train.npy` contains training set for model training and the `val.npy` contains validation set for model selection.
+Run the script train_patient_FTC_net.py to train FTC-Net using `train.npy` and `val.npy` files. The `train.npy` contains training set for model training and the `val.npy` contains validation set for model selection.
 
 Modify the code kind of `data_path` to your actual data save path, and modify `model_save_path` to your expected model save path.
 
@@ -53,7 +53,7 @@ During model training, the checkpoints of the best performance on the validation
 
 ## Step 4: Model evaluation
 
-Run the script eval_patient_siglip.py to test the performance of FTC-Net using `test.npy`. The `test.npy` contains test set for model testing.
+Run the script eval_patient_FTC_net.py to test the performance of FTC-Net using `test.npy`. The `test.npy` contains test set for model testing.
 
 Before running the script, you need to set the model path to the training saved model path `model_save_path` and modify the code kind of `data_path` to your actual data save path.
 
