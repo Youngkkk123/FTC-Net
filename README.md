@@ -95,8 +95,7 @@ The model achieved **90% accuracy** in prospective validation:
 
 The pre-trained classification model can be downloaded via the link below for reproducing the prospective validation results:
 
-- Download link: https://mypikpak.com/s/VOpBZa6m-FOvmDekh8Dgo9oIo2
-- Extraction key: `2y9f`
+- Download link: https://www.scidb.cn/en/s/eANRb2
 
 #### 3. Evaluation Instructions
 
