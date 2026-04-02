@@ -1,7 +1,21 @@
-from dataAugmentation import ImageEqualSize, Square_Generated
 from torch.utils.data import Dataset
 import os
 from PIL import Image
+
+
+def Square_Generated(image,fill_style:int=0,map_color:tuple=0):
+    w, h = image.size
+    new_image = Image.new(image.mode, size=(max(w, h), max(w, h)),color=map_color)
+    if fill_style == 0:
+        point = int(abs(w - h)) // 2
+        box = (point,0) if w < h else (0,point)
+    elif fill_style == 1:
+        length = int(abs(w - h))
+        box = (length, 0) if w < h else (0, length)
+    else:
+        box = (0,0)
+    new_image.paste(image, box)
+    return new_image
 
 
 class Datasets_Bmode_patient_dir(Dataset):
