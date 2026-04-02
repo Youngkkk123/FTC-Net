@@ -220,7 +220,7 @@ if __name__ == '__main__':
 
         # Prepare result data for Excel export
         patient_max_probs = [max(probs) if probs else None for probs in all_probs]
-        # 根据固定阈值生成预测结果
+        # Generate prediction results based on a fixed threshold
         patient_preds = [1 if prob >= threshold else 0 if prob is not None else None for prob in patient_max_probs]
 
         result_data = {
