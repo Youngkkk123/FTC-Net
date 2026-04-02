@@ -11,11 +11,12 @@ from utils_index import calcAUC, calcACCSENSPE
 from data_augmentation import get_data_transform_2D_vit
 from Loss import FocalLoss
 import random
-from transformers import AutoModel
+from transformers import AutoModel, AutoProcessor
 from peft import LoraConfig, get_peft_model
 
 
 def train_process(model, optimizer, datasetloader, processor, device):
+    # Set model to training mode
     model.train()
     optimizer.zero_grad()
 
@@ -23,13 +24,13 @@ def train_process(model, optimizer, datasetloader, processor, device):
     truth_list = []
     probability_list = []
 
-    # 定义两个类别的文本
+    # Define text prompts for the two classes
     class_texts = [
         "An image of thyroid adenoma.",
         "An image of thyroid follicular carcinoma."
     ]
 
-    # 预先处理文本，获取文本嵌入
+    # Preprocess text and obtain text embeddings
     text_inputs = processor(
         text=class_texts,
         return_tensors="pt",
@@ -37,42 +38,48 @@ def train_process(model, optimizer, datasetloader, processor, device):
     )
     text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
-    # 分离文本处理和图像处理
-    with torch.no_grad():
-        text_outputs = model.get_text_features(**text_inputs)
-        text_embeds = F.normalize(text_outputs, p=2, dim=1)  # 确保L2归一化
+    # Separate text processing and image processing
+    text_outputs = model.get_text_features(**text_inputs)
+    text_embeds = F.normalize(text_outputs, p=2, dim=1)
 
-    criterion = FocalLoss(gamma=2, alpha=0.75)
+    # Initialize loss function
+    criterion = FocalLoss(gamma=2, alpha=0.5)
 
     for j, datas in enumerate(datasetloader):
         images = datas['image'].to(device)
         labels = datas['label'].to(device)
 
-        # 处理图像，获取图像嵌入
+        # Process images and obtain image embeddings
         image_inputs = processor(images=images, return_tensors="pt").to(device)
         image_embeds = model.get_image_features(**image_inputs)
-        image_embeds = F.normalize(image_embeds, p=2, dim=1)  # 确保L2归一化
+        image_embeds = F.normalize(image_embeds, p=2, dim=1)
 
         # cosine similarity as logits
         cos_similarity = (
-            torch.matmul(text_embeds.detach().clone(), image_embeds.t().to(text_embeds.device)) * model.base_model.logit_scale.exp()
-            + model.base_model.logit_bias
+                torch.matmul(text_embeds.detach().clone(),
+                             image_embeds.t().to(text_embeds.device)) * model.base_model.logit_scale.exp()
+                + model.base_model.logit_bias
         ).T
 
+        # Calculate loss
         loss = criterion(cos_similarity, labels)
 
+        # Backpropagation and optimizer step
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
         total_loss += loss.item() * images.size(0)
 
+        # Collect ground truth labels
         truth_list.extend(labels.cpu().detach().numpy())
-        # 只在计算概率时应用softmax
+
+        # Calculate prediction probabilities
         probabilities = torch.softmax(cos_similarity, dim=1)
         probability = probabilities[:, 1]
         probability_list.extend(probability.cpu().detach().numpy())
 
+    # Calculate evaluation metrics
     avg_auc, threshold = calcAUC(truth_list, probability_list)
     acc, sen, spe = calcACCSENSPE(truth_list, probability_list, threshold)
     avg_loss = total_loss / len(datasetloader.dataset)
@@ -82,19 +89,20 @@ def train_process(model, optimizer, datasetloader, processor, device):
 
 def val_process(model, datasetloader, processor, device):
     with torch.no_grad():
+        # Set model to evaluation mode
         model.eval()
 
         total_loss = 0
         truth_list = []
         probability_list = []
 
-        # 定义两个类别的文本
+        # Define text prompts for the two classes
         class_texts = [
             "An image of thyroid adenoma.",
             "An image of thyroid follicular carcinoma."
         ]
 
-        # 预先处理文本，获取文本嵌入
+        # Preprocess text and obtain text embeddings
         text_inputs = processor(
             text=class_texts,
             return_tensors="pt",
@@ -102,40 +110,40 @@ def val_process(model, datasetloader, processor, device):
         )
         text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
-        # 分离文本处理和图像处理
+        # Separate text processing and image processing
         text_outputs = model.get_text_features(**text_inputs)
-        text_embeds = F.normalize(text_outputs, p=2, dim=1)  # 确保L2归一化
+        text_embeds = F.normalize(text_outputs, p=2, dim=1)  # Ensure L2 normalization
 
-        criterion = FocalLoss(gamma=2, alpha=0.75)
+        # Initialize loss function
+        criterion = FocalLoss(gamma=2, alpha=0.5)
 
         for j, datas in enumerate(datasetloader):
             images = datas['image'].to(device)
             labels = datas['label'].to(device)
 
-            # 处理图像，获取图像嵌入
+            # Process images and obtain image embeddings
             image_inputs = processor(images=images, return_tensors="pt").to(device)
             image_embeds = model.get_image_features(**image_inputs)
-            image_embeds = F.normalize(image_embeds, p=2, dim=1)  # 确保L2归一化
+            image_embeds = F.normalize(image_embeds, p=2, dim=1)  # Ensure L2 normalization
 
-            # 计算图像与文本之间的余弦相似度矩阵 [batch_size, 2]
+            # Calculate cosine similarity matrix between images and texts [batch_size, 2]
             cos_similarity = (
                     torch.matmul(text_embeds.detach().clone(),
                                  image_embeds.t().to(text_embeds.device)) * model.base_model.logit_scale.exp()
                     + model.base_model.logit_bias
             ).T
 
-            # 应用softmax
-            probabilities = torch.softmax(cos_similarity, dim=1)
-
-            # 计算交叉熵损失
-            loss = criterion(probabilities, labels)
-
+            # Calculate loss
+            loss = criterion(cos_similarity, labels)
             total_loss += loss.item() * images.size(0)
 
+            # Calculate prediction probabilities
+            probabilities = torch.softmax(cos_similarity, dim=1)
             truth_list.extend(labels.cpu().detach().numpy())
             probability = probabilities[:, 1]
             probability_list.extend(probability.cpu().detach().numpy())
 
+        # Calculate evaluation metrics
         avg_auc, threshold = calcAUC(truth_list, probability_list)
         acc, sen, spe = calcACCSENSPE(truth_list, probability_list, threshold)
         avg_loss = total_loss / len(datasetloader.dataset)
@@ -143,6 +151,7 @@ def val_process(model, datasetloader, processor, device):
     return model, avg_loss, avg_auc, acc, sen, spe, threshold
 
 
+# Custom collate function for DataLoader
 def custom_collate_fn(batch):
     images = []
     labels = []
@@ -158,6 +167,7 @@ def custom_collate_fn(batch):
     }
 
 
+# Balanced batch sampler to ensure equal positive/negative samples in each batch
 class BalancedBatchSampler(torch.utils.data.Sampler):
     def __init__(self, datasets, batch_size):
         self.datasets = datasets
@@ -165,7 +175,7 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
         self.pos_indices = []
         self.neg_indices = []
 
-        # 遍历所有数据集，获取正样本和负样本的索引
+        # Iterate through all datasets to get indices of positive and negative samples
         start_index = 0
         for dataset in self.datasets:
             labels = dataset.labels
@@ -189,166 +199,186 @@ class BalancedBatchSampler(torch.utils.data.Sampler):
 
 
 if __name__ == '__main__':
+    # Set device (GPU if available, else CPU)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    foldnum = 5
+    # Training hyperparameters
     epoch = 100
     patchsize = (224, 224)
     batchsize = 8
-    lr = 1e-4
+    lr = 1e-5
 
-    for seed in [68]:
-        print("\n**********{}***********\n".format(seed))
-        seed_num = seed
-        torch.manual_seed(seed_num)
-        torch.cuda.manual_seed_all(seed_num)
-        random.seed(seed_num)
-        np.random.seed(seed_num)
-        os.environ['PYTHONHASHSEED'] = str(seed_num)
-        from torch.backends import cudnn
-        cudnn.benchmark = False
-        cudnn.deterministic = True
+    # Set random seed for reproducibility
+    seed_num = 0
+    torch.manual_seed(seed_num)
+    torch.cuda.manual_seed_all(seed_num)
+    random.seed(seed_num)
+    np.random.seed(seed_num)
+    os.environ['PYTHONHASHSEED'] = str(seed_num)
+    from torch.backends import cudnn
 
-        data_path = ""
-        model_save_path = ""
-        os.makedirs(model_save_path, exist_ok=True)
+    cudnn.benchmark = False
+    cudnn.deterministic = True
 
-        model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(device)
-        processor = AutoModel.from_pretrained("google/siglip-base-patch16-224", do_rescale=False)
+    # Path configurations
+    data_path = "./data_npy"
+    model_save_path = "./model_save"
+    os.makedirs(model_save_path, exist_ok=True)
 
-        config = LoraConfig(
-            r=16,
-            lora_alpha=16,
-            lora_dropout=0.1,
-            target_modules=['q_proj', 'k_proj', 'v_proj'],
-            bias="none"
-        )
+    # Load pre-trained SigLIP model and processor
+    model = AutoModel.from_pretrained("google/siglip-base-patch16-224").to(device)
+    processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224", do_rescale=False)
 
-        # 对图像编码器应用LoRA
-        model.vision_model = get_peft_model(model.vision_model, config)
-        # 对文本编码器应用LoRA
-        model.text_model = get_peft_model(model.text_model, config)
+    # Load pre-trained SigLIP model and processor locally
+    # model_path = r"D:\Work\Thyroid_classify\.local_models\siglip-base-patch16-224"
+    # model = AutoModel.from_pretrained(model_path, local_files_only=True)
+    # processor = AutoProcessor.from_pretrained(model_path, local_files_only=True, do_rescale=False)
 
-        model = model.to(device)
-        # print(model)
+    # LoRA configuration
+    config = LoraConfig(
+        r=16,
+        lora_alpha=16,
+        lora_dropout=0.1,
+        target_modules=['q_proj', 'k_proj', 'v_proj'],
+        bias="none"
+    )
 
-        model_save = model_save_path
-        os.makedirs(model_save, exist_ok=True)
+    # Apply LoRA to the vision encoder
+    model.vision_model = get_peft_model(model.vision_model, config)
+    # Apply LoRA to the text encoder
+    model.text_model = get_peft_model(model.text_model, config)
 
-        train_path_pos = os.path.join(data_path, "train_pos.npy")
-        train_path_neg = os.path.join(data_path, "train_neg.npy")
-        val_path = os.path.join(data_path, "valid.npy")
+    model = model.to(device)
 
-        train_list_pos = np.load(train_path_pos, allow_pickle=True)
-        train_list_neg = np.load(train_path_neg, allow_pickle=True)
-        val_list = np.load(val_path, allow_pickle=True)
+    model_save = model_save_path
+    os.makedirs(model_save, exist_ok=True)
 
-        print('train_pos list length:', len(train_list_pos))
-        print('train_neg list length:', len(train_list_neg))
-        print('valid list length:', len(val_list))
+    # Load dataset paths
+    train_path_pos = os.path.join(data_path, "train_pos.npy")
+    train_path_neg = os.path.join(data_path, "train_neg.npy")
+    val_path = os.path.join(data_path, "valid.npy")
 
-        imgTrans = get_data_transform_2D_vit(patchsize)
+    # Load dataset lists
+    train_list_pos = np.load(train_path_pos, allow_pickle=True)
+    train_list_neg = np.load(train_path_neg, allow_pickle=True)
+    val_list = np.load(val_path, allow_pickle=True)
 
-        # 创建数据集
-        datasetTrain_pos = Datasets_Bmode_roi_patient_allimg(train_list_pos, transform=imgTrans['train'], device=device)
-        datasetTrain_neg = Datasets_Bmode_roi_patient_allimg(train_list_neg, transform=imgTrans['train'], device=device)
-        datasetVal = Datasets_Bmode_roi_patient_allimg(val_list, transform=imgTrans['val'], device=device)
+    # Print dataset sizes
+    print('train_pos list length:', len(train_list_pos))
+    print('train_neg list length:', len(train_list_neg))
+    print('valid list length:', len(val_list))
 
-        # 创建 BalancedBatchSampler
-        balanced_sampler = BalancedBatchSampler([datasetTrain_pos, datasetTrain_neg], batch_size=batchsize)
+    # Get data augmentation transforms
+    imgTrans = get_data_transform_2D_vit(patchsize)
 
-        # 创建 DataLoader
-        trainloader = DataLoader(dataset=ConcatDataset([datasetTrain_pos, datasetTrain_neg]), batch_sampler=balanced_sampler, collate_fn=custom_collate_fn)
-        valloader = DataLoader(dataset=datasetVal, batch_size=1, shuffle=False, collate_fn=custom_collate_fn)
-        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=0.000001)
+    # Create datasets
+    datasetTrain_pos = Datasets_Bmode_roi_patient_allimg(train_list_pos, transform=imgTrans['train'], device=device)
+    datasetTrain_neg = Datasets_Bmode_roi_patient_allimg(train_list_neg, transform=imgTrans['train'], device=device)
+    datasetVal = Datasets_Bmode_roi_patient_allimg(val_list, transform=imgTrans['val'], device=device)
 
-        history = []
+    # Create balanced batch sampler
+    balanced_sampler = BalancedBatchSampler([datasetTrain_pos, datasetTrain_neg], batch_size=batchsize)
 
-best_avg_valid_loss = 9999
-best_avg_valid_auc = 0
-best_acc = 0
-best_sen = 0
-best_spe = 0
-best_epoch = 0
-best_threshold = 0
-early_stopping_patience = 10  # 早停等待轮数
-early_stopping_counter = 0    # 早停计数器
+    # Create DataLoader
+    trainloader = DataLoader(dataset=ConcatDataset([datasetTrain_pos, datasetTrain_neg]), batch_sampler=balanced_sampler, collate_fn=custom_collate_fn)
+    valloader = DataLoader(dataset=datasetVal, batch_size=1, shuffle=False, collate_fn=custom_collate_fn)
 
-for epoch_i in range(epoch):
-    epoch_start = time.time()
-    model, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe, train_threshold = train_process(
-        model, optimizer, trainloader, processor, device)
-    model, avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe, val_threshold = val_process(model,valloader,processor,device)
-    epoch_end = time.time()
+    # Optimizer and learning rate scheduler
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=100, eta_min=0.000001)
 
-    history.append([avg_train_loss, avg_valid_loss, avg_train_auc, avg_valid_auc])
+    # Store training history
+    history = []
 
-    if (epoch_i + 1) > 5 and best_avg_valid_loss >= avg_valid_loss:
-        best_avg_valid_loss = avg_valid_loss
-        best_avg_valid_auc = avg_valid_auc
-        best_acc = valid_acc
-        best_sen = valid_sen
-        best_spe = valid_spe
-        best_epoch = epoch_i + 1
-        best_threshold = val_threshold
-        torch.save(model, model_save + '/' + "Best_model.pt")
-        train_info = 'Epoch: {:03d}, Training: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, threshold: {:.4f} \nValidation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, threshold: {:.4f}, Time: {:.4f}s, \nlearning rate: {:.7f}'.format(
-            epoch_i + 1, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe, train_threshold,
-            avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe, best_threshold,
-            epoch_end - epoch_start, optimizer.param_groups[0]['lr']
-        )
-        with open(model_save + '/' + 'train_metrics.txt', 'w') as f:
-            f.write(train_info)
-        early_stopping_counter = 0  # 重置早停计数器
-    else:
-        early_stopping_counter += 1  # 验证loss未改善，计数器+1
+    # Initialize best model metrics
+    best_avg_valid_loss = 9999
+    best_avg_valid_auc = 0
+    best_acc = 0
+    best_sen = 0
+    best_spe = 0
+    best_epoch = 0
+    best_threshold = 0
+    early_stopping_patience = 10  # Epochs to wait for early stopping
+    early_stopping_counter = 0  # Early stopping counter
 
-    print(
-        "Epoch: {:03d}, Training: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f} \n\t\t\tValidation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, Time: {:.4f}s, \n\t\t\tlearning rate: {:.7f}".format(
-            epoch_i + 1, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe,
-            avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe,
-            epoch_end - epoch_start, optimizer.param_groups[0]['lr']
-        ))
-    print(
-        "Best Epoch: {:03d}, Validation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, Early Stopping Counter: {:02d}/{:02d}".format(
-            best_epoch, best_avg_valid_loss, best_avg_valid_auc, best_acc, best_sen, best_spe,
-            early_stopping_counter, early_stopping_patience
-        ))
+    # Training loop
+    for epoch_i in range(epoch):
+        epoch_start = time.time()
+        # Training process
+        model, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe, train_threshold = train_process(model,
+                                                                                                               optimizer,
+                                                                                                               trainloader,
+                                                                                                               processor,
+                                                                                                               device)
+        # Validation process
+        model, avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe, val_threshold = val_process(model,
+                                                                                                           valloader,
+                                                                                                           processor,
+                                                                                                           device)
+        epoch_end = time.time()
 
-    # 触发早停条件
-    if early_stopping_counter >= early_stopping_patience:
-        print(f"Early stopping triggered after {early_stopping_patience} epochs without improvement!")
-        break
+        # Save metrics history
+        history.append([avg_train_loss, avg_valid_loss, avg_train_auc, avg_valid_auc])
 
-        torch.save(history, model_save + '/history.pt')
+        # Save best model and update metrics
+        if (epoch_i + 1) > 5 and avg_valid_auc >= best_avg_valid_auc:
+            best_avg_valid_loss = avg_valid_loss
+            best_avg_valid_auc = avg_valid_auc
+            best_acc = valid_acc
+            best_sen = valid_sen
+            best_spe = valid_spe
+            best_epoch = epoch_i + 1
+            best_threshold = val_threshold
+            torch.save(model, model_save + '/' + "Best_model.pt")
+            train_info = 'Epoch: {:03d}, Training: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, threshold: {:.4f} \nValidation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, threshold: {:.4f}, Time: {:.4f}s, \nlearning rate: {:.7f}'.format(
+                epoch_i + 1, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe, train_threshold,
+                avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe, best_threshold,
+                epoch_end - epoch_start, optimizer.param_groups[0]['lr']
+            )
+            # Save training metrics to file
+            with open(model_save + '/' + 'train_metrics.txt', 'w') as f:
+                f.write(train_info)
+            early_stopping_counter = 0  # Reset early stopping counter
+        else:
+            early_stopping_counter += 1  # Increment counter if no improvement
 
-        history = np.array(history)
-        fig1 = plt.figure()
-        plt.plot(history[:, 0])
-        plt.plot(history[:, 1])
-        plt.legend(['Tr Loss', 'Val Loss'])
-        plt.xlabel('Epoch Number')
-        plt.ylabel('Loss')
-        fig1.savefig(model_save + '/loss_curve.png')
+        # Print epoch metrics
+        print(
+            "Epoch: {:03d}, Training: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f} \n\t\t\tValidation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, Time: {:.4f}s, \n\t\t\tlearning rate: {:.7f}".format(
+                epoch_i + 1, avg_train_loss, avg_train_auc, train_acc, train_sen, train_spe,
+                avg_valid_loss, avg_valid_auc, valid_acc, valid_sen, valid_spe,
+                epoch_end - epoch_start, optimizer.param_groups[0]['lr']
+            ))
+        # Print best metrics and early stopping status
+        print(
+            "Best Epoch: {:03d}, Validation: Loss: {:.4f}, AUC: {:.4f}, ACC: {:.4f}, SEN: {:.4f}, SPE: {:.4f}, Early Stopping Counter: {:02d}/{:02d}".format(
+                best_epoch, best_avg_valid_loss, best_avg_valid_auc, best_acc, best_sen, best_spe,
+                early_stopping_counter, early_stopping_patience
+            ))
 
-        fig2 = plt.figure()
-        plt.plot(history[:, 2])
-        plt.plot(history[:, 3])
-        plt.legend(['Tr AUC', 'Val AUC'])
-        plt.xlabel('Epoch Number')
-        plt.ylabel('AUC')
-        fig2.savefig(model_save + '/AUC_curve.png')
+        # Trigger early stopping condition
+        if early_stopping_counter >= early_stopping_patience:
+            print(f"Early stopping triggered after {early_stopping_patience} epochs without improvement!")
+            break
 
-    txr_path = os.path.join(model_save_path, 'train_param.txt')  # 保存训练参数和模型
-    with open(txr_path, 'w') as writer:
-        writer.write('lr:{}\n'.format(lr))
-        writer.write('epochs:{}\n'.format(epoch))
-        writer.write('batch_size:{}\n'.format(batchsize))
-        writer.write('lora_r:{}\n'.format(config.r))
-        writer.write('lora_alpha:{}\n'.format(config.lora_alpha))
-        writer.write('lora_dropout:{}\n'.format(config.lora_dropout))
-        writer.write('optimizer:{}\n'.format(optimizer))
-        writer.write('loss_func: Focalloss\n')
-        writer.write('model:{}\n'.format(model))
-        writer.close()
+    # Save training history
+    torch.save(history, model_save + '/history.pt')
+
+    # Plot and save loss curve
+    history = np.array(history)
+    fig1 = plt.figure()
+    plt.plot(history[:, 0])
+    plt.plot(history[:, 1])
+    plt.legend(['Tr Loss', 'Val Loss'])
+    plt.xlabel('Epoch Number')
+    plt.ylabel('Loss')
+    fig1.savefig(model_save + '/loss_curve.png')
+
+    # Plot and save AUC curve
+    fig2 = plt.figure()
+    plt.plot(history[:, 2])
+    plt.plot(history[:, 3])
+    plt.legend(['Tr AUC', 'Val AUC'])
+    plt.xlabel('Epoch Number')
+    plt.ylabel('AUC')
+    fig2.savefig(model_save + '/AUC_curve.png')
