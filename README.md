@@ -6,11 +6,11 @@ File descriptions are as follows:
 
 | File Name                  | Function Description                                  |
 | -------------------------- | ----------------------------------------------------- |
-| `train_patient_FTC_net.py` | Model training script                                 |
-| `eval_patient_FTC_net.py`  | Model testing / evaluation script                     |
-| `datagenerator.py`         | Dataset class definition file                         |
-| `data_augmentation.py`     | Data augmentation method implementation file          |
-| `Loss.py`                  | Focal Loss function definition file                   |
+| `train_patient_FTC_net.py` | Model training                                        |
+| `eval_patient_FTC_net.py`  | Model evaluation                                      |
+| `datagenerator.py`         | Dataset class definition                              |
+| `data_augmentation.py`     | Data augmentation                                     |
+| `Loss.py`                  | Focal Loss function definition                        |
 | `utils_index.py`           | Tool class for AUC (Area Under the Curve) calculation |
 
 How to start
@@ -45,12 +45,10 @@ For example:
 
 | Name            | Format example                                               |
 | --------------- | ------------------------------------------------------------ |
-| `train_pos.npy` | `[["train_pos_path_1", "0"], ["train_pos_path_2", "1"], ..., ["train_pos_path_N", "0"]]` |
-| `train_neg.npy` | `[["train_neg_path_1", "0"], ["train_neg_path_2", "1"], ..., ["train_neg_path_N", "0"]]` |
+| `train_pos.npy` | `[["train_pos_path_1", "1"], ["train_pos_path_2", "1"], ..., ["train_pos_path_N", "1"]]` |
+| `train_neg.npy` | `[["train_neg_path_1", "0"], ["train_neg_path_2", "0"], ..., ["train_neg_path_N", "0"]]` |
 | `valid.npy`     | `[["valid_path_1", "1"], ["valid_path_2", "0"], ..., ["valid_path_N", "0"]]` |
 | `test.npy`      | `[["test_path_1", "1"], ["test_path_2", "0"], ..., ["test_path_N", "1"]]` |
-
-eg.["./dataset/hospital/name/image","0"]
 
 
 Step 3: Model training
@@ -97,7 +95,8 @@ The model achieved **90% accuracy** in prospective validation:
 
 The pre-trained classification model can be downloaded via the link below for reproducing the prospective validation results:
 
-- Download link: https://www.scidb.cn/s/eANRb2
+- Download link: https://mypikpak.com/s/VOpBZa6m-FOvmDekh8Dgo9oIo2
+- Extraction key: `2y9f`
 
 #### 3. Evaluation Instructions
 
