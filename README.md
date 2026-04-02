@@ -56,7 +56,7 @@ eg.["./dataset/hospital/name/image","0"]
 Step 3: Model training
 -------------
 
-Run the script `train_patient_FTC_net.py` to train FTC-Net using `train.npy` and `valid.npy` files. The `train.npy` contains training set for model training and the `valid.npy` contains validation set for model selection.
+Run the script `train_patient_FTC_net.py` to train FTC-Net using `train_pos.npy` , `train_neg.npy`and `valid.npy` files. The `train_pos.npy`  and `train_neg.npy` contain training set for model training and the `valid.npy` contains validation set for model selection.
 
 Modify the code kind of `data_path` to your actual data save path, and modify `model_save_path` to your expected model save path.
 
@@ -97,14 +97,14 @@ The model achieved **90% accuracy** in prospective validation:
 
 The pre-trained classification model can be downloaded via the link below for reproducing the prospective validation results:
 
-- Download link: https://pan.baidu.com/s/1JNtU9Ma8UwTP0hxe161-8w?pwd=x9bs
-- Extraction key: `x9bs`
+- Download link: https://mypikpak.com/s/VOpBZa6m-FOvmDekh8Dgo9oIo2
+- Extraction key: `2y9f`
 
 #### 3. Evaluation Instructions
 
 To evaluate the model on the prospective dataset:
 
-1. Download the model weights from the above link
+1. Download the model weights `model.pt` from the above link
 
 2. Place the weights file in the project root directory (or update the model path in `prediction.py`)
 
