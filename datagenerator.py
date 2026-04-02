@@ -3,7 +3,6 @@ import os
 from PIL import Image
 
 
-# Function to pad image to a square shape
 def Square_Generated(image, fill_style: int = 0, map_color: tuple = 0):
     w, h = image.size  # Get image dimensions
     new_image = Image.new(image.mode, size=(max(w, h), max(w, h)), color=map_color)
