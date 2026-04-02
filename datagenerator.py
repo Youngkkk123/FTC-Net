@@ -28,7 +28,7 @@ class Datasets_Bmode_patient_dir(Dataset):
         return len(self.data_list)
 
     def __getitem__(self, index):
-        # 提取图像路径和标签
+        # Extract image paths and labels
         patient_path, label = self.data_list[index]
         # patient_path = patient_path.replace('\\', '/')
 
