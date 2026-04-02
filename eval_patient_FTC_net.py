@@ -13,7 +13,6 @@ from sklearn.metrics import *
 from datagenerator import Datasets_Bmode_patient_dir
 import random
 from PIL import Image
-from utils import extract_patient_identifier
 from transformers import AutoModel, AutoProcessor
 from peft import LoraConfig, get_peft_model
 
@@ -43,6 +42,13 @@ def Square_Generated(image, fill_style: int = 0, map_color: tuple = 0):
         box = (0, 0)
     new_image.paste(image, box)  # Paste original image onto square image, box is the top-left coordinate
     return new_image
+
+
+def extract_patient_identifier(patient_path):
+    parts = patient_path.split('\\')
+    if len(parts) >= 4:
+        return '\\'.join(parts[-4:-1])
+    return patient_path
 
 
 # Patient-level validation process
