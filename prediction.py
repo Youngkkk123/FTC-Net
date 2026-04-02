@@ -52,8 +52,8 @@ def Square_Generated(image,fill_style:int=0,map_color:tuple=0):
         point = int(abs(w - h)) // 2
         box = (point,0) if w < h else (0,point)
     elif fill_style == 1:
-        length = int(abs(w - h))  # 一侧需要填充的长度
-        box = (length, 0) if w < h else (0, length)  # 放在box中
+        length = int(abs(w - h))
+        box = (length, 0) if w < h else (0, length)
     else:
         box = (0,0)
     new_image.paste(image, box)
