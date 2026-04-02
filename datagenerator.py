@@ -3,18 +3,19 @@ import os
 from PIL import Image
 
 
-def Square_Generated(image,fill_style:int=0,map_color:tuple=0):
-    w, h = image.size
-    new_image = Image.new(image.mode, size=(max(w, h), max(w, h)),color=map_color)
+# Function to pad image to a square shape
+def Square_Generated(image, fill_style: int = 0, map_color: tuple = 0):
+    w, h = image.size  # Get image dimensions
+    new_image = Image.new(image.mode, size=(max(w, h), max(w, h)), color=map_color)
     if fill_style == 0:
         point = int(abs(w - h)) // 2
-        box = (point,0) if w < h else (0,point)
+        box = (point, 0) if w < h else (0, point)
     elif fill_style == 1:
-        length = int(abs(w - h))
-        box = (length, 0) if w < h else (0, length)
+        length = int(abs(w - h))  # Length to pad on one side
+        box = (length, 0) if w < h else (0, length)  # Set paste coordinates
     else:
-        box = (0,0)
-    new_image.paste(image, box)
+        box = (0, 0)
+    new_image.paste(image, box)  # Paste original image onto square image, box is the top-left coordinate
     return new_image
 
 
