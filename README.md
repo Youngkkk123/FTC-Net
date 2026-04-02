@@ -1,16 +1,21 @@
 # FTC-Net
+
 This is the official implementation of FTC-Net in our work. 
 
 File descriptions are as follows:
-* train_patient_FTC_net.py: This code is for model training.
-* eval_patient_FTC_net.py: This code is for model testing.
-* datagenerator.py: This code is for dataset class.
-* data_augmentation.py: This code is for dataset augmentation.
-* Loss.py: This code is for definition of Focal_loss.
-* utils_index.py: This code is for calculation of Auc.
+
+| File Name                  | Function Description                                  |
+| -------------------------- | ----------------------------------------------------- |
+| `train_patient_FTC_net.py` | Model training script                                 |
+| `eval_patient_FTC_net.py`  | Model testing / evaluation script                     |
+| `datagenerator.py`         | Dataset class definition file                         |
+| `data_augmentation.py`     | Data augmentation method implementation file          |
+| `Loss.py`                  | Focal Loss function definition file                   |
+| `utils_index.py`           | Tool class for AUC (Area Under the Curve) calculation |
 
 How to start
 =============
+
 This code can be easily performed on B-mode Ultrasound data with classification annotation. Here, we split the whole process into 4 steps so that you can reproduce the FTC-Net on your personal side.
 
 * Step 1: Environment setting.
@@ -20,6 +25,7 @@ This code can be easily performed on B-mode Ultrasound data with classification 
 
 Step 1: Environment setting
 -------------
+
 Our code was implemented in following environment：
 
 * Python == 3.9.0
@@ -30,22 +36,27 @@ Our code was implemented in following environment：
 
 Step 2: Data preparation
 -------------
+
 Prepare the data according to our paper, make sure that the data for each patient comprise the required number of B-mode Ultrasound image crops.
-You need to split the patients into three parts: a training set, a validation set, and a test set.
-Then, save the data path and the corresponding label in a `.npy` file for each set. For example:
+You need to split the patient data into four parts: two training subsets (a positive training subset and a negative training subset), one validation set, and one test set.
+Then, save the data path and the corresponding label in a `.npy` file for each set. 
 
-* train.npy  ---  [["train_path_1", "0"], ["train_path_2", "1"], ..., ["train_path_N", "0"]]
+For example:
 
-* val.npy    ---  [["val_path_1", "1"],   ["val_path_2", "0"],   ..., ["val_path_N", "0"]]
+| Name            | Format example                                               |
+| --------------- | ------------------------------------------------------------ |
+| `train_pos.npy` | `[["train_pos_path_1", "0"], ["train_pos_path_2", "1"], ..., ["train_pos_path_N", "0"]]` |
+| `train_neg.npy` | `[["train_neg_path_1", "0"], ["train_neg_path_2", "1"], ..., ["train_neg_path_N", "0"]]` |
+| `valid.npy`     | `[["valid_path_1", "1"], ["valid_path_2", "0"], ..., ["valid_path_N", "0"]]` |
+| `test.npy`      | `[["test_path_1", "1"], ["test_path_2", "0"], ..., ["test_path_N", "1"]]` |
 
-* test.npy   ---  [["test_path_1", "1"],  ["test_path_2", "0"],  ..., ["test_path_N", "1"]]
-
-  eg.["./dataset/hospital/name/image","0"]
+eg.["./dataset/hospital/name/image","0"]
 
 
 Step 3: Model training
 -------------
-Run the script train_patient_FTC_net.py to train FTC-Net using `train.npy` and `val.npy` files. The `train.npy` contains training set for model training and the `val.npy` contains validation set for model selection.
+
+Run the script `train_patient_FTC_net.py` to train FTC-Net using `train.npy` and `valid.npy` files. The `train.npy` contains training set for model training and the `valid.npy` contains validation set for model selection.
 
 Modify the code kind of `data_path` to your actual data save path, and modify `model_save_path` to your expected model save path.
 
@@ -53,7 +64,7 @@ During model training, the checkpoints of the best performance on the validation
 
 ## Step 4: Model evaluation
 
-Run the script eval_patient_FTC_net.py to test the performance of FTC-Net using `test.npy`. The `test.npy` contains test set for model testing.
+Run the script `eval_patient_FTC_net.py` to test the performance of FTC-Net using `test.npy`. The `test.npy` contains test set for model testing.
 
 Before running the script, you need to set the model path to the training saved model path `model_save_path` and modify the code kind of `data_path` to your actual data save path.
 
@@ -97,8 +108,4 @@ To evaluate the model on the prospective dataset:
 
 2. Place the weights file in the project root directory (or update the model path in `prediction.py`)
 
-3. Run the inference script:
-
-   ```bash
-   python prediction.py
-   ```
+3. Run the inference script: `python prediction.py`
